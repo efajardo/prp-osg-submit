@@ -6,9 +6,10 @@ metadata:
 spec:
   selector:
     k8s-app: osg-submit
-  type: ClusterIP
+  type: NodePort
   ports:
   - name: condor
-    port: 39618
-    targetPort: 39618
+    port: 31618
+    nodePort: 31618
     protocol: TCP
+    targetPort: 31618

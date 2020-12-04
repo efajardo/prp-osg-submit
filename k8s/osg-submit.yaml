@@ -5,6 +5,11 @@ metadata:
   namespace: osg-services
 spec:
   replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
   selector:
     matchLabels:
       k8s-app: osg-submit
@@ -17,17 +22,21 @@ spec:
       - env:
         - name: CONDOR_HOST
           value: "flock.opensciencegrid.org" 
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         name: osg-submit
         image: htcondor/submit:el7
         ports:
-        - containerPort: 39618 
+        - containerPort: 31618 
         volumeMounts:
-        - mountPath: /etc/gwms-frontend/proxies.ini
-          subPath: proxies.ini
-          name: proxies-config
-        - mountPath: /etc/gwms-frontend/frontend.xml.k8s
-          subPath: frontend.xml.k8s
-          name: fexml-config
+        - mountPath: /etc/condor/condor_config.local
+          subPath: condor_config.local
+          name: condor-config
+        - mountPath: /root/secrets/token
+          subPath: token
+          name: flock-token
         resources:
           limits:
             cpu: 4
@@ -37,17 +46,16 @@ spec:
             memory: 1Gi
       restartPolicy: Always
       volumes:
-        - name: proxycerts-secret
+        - name: flock-token
           secret:
-            secretName: jlabproxycerts
-          #  defaultMode: 0600      #Right File Permissions so can only be read by one node.
-        - name: proxies-config
+            secretName: osgflock-submit-token
+            items:
+            - key: token
+              path: token
+        - name: condor-config
           configMap:
-             name: jlab-proxies-config
-        - name: fexml-config
-          configMap:
-             name: jlab-fexml
-        - name:  eicvomscerts-secret
-          secret:
-            secretName: eicvomscerts
-            defaultMode: 0600
+             name: condor-flock-config
+             items:
+             - key: condor.config
+               path: condor_config.local
+
