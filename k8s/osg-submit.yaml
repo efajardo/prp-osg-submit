@@ -27,35 +27,77 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         name: osg-submit
-        image: htcondor/submit:el7
+        resources:
+          limits:
+            cpu: 3
+            memory: 6Gi
+          requests:
+            cpu: 2
+            memory: 5Gi
+        #image: htcondor/submit:el7
+        image: opensciencegrid/submit-host:fresh
         ports:
         - containerPort: 31618 
         volumeMounts:
         - mountPath: /etc/condor/condor_config.local
           subPath: condor_config.local
           name: condor-config
+        - mountPath: /root/config/ProbeConfig
+          subPath: ProbeConfig
+          name: gratia-config
         - mountPath: /root/secrets/token
           subPath: token
           name: flock-token
+        - mountPath: /etc/condor/passwords.d/token_key
+          subPath: token_key
+          name: submit-token-key
+        - mountPath: /var/lib/condor/spool
+          name: spool
+      initContainers:
+      - command: ["sh", "-c", "chown -R 64:64 /spool"]
+        image: busybox
+        imagePullPolicy: Always
+        name: chowndata
+        volumeMounts:
+        - mountPath: /spool
+          name: spool
         resources:
           limits:
-            cpu: 4
-            memory: 3Gi
+            cpu: 2
+            memory: 2Gi
           requests:
-            cpu: 3
+            cpu: 1
             memory: 1Gi
       restartPolicy: Always
       volumes:
+        # This is the token used to authenticate with the OSGVO pool contact Mats for another
         - name: flock-token
           secret:
             secretName: osgflock-submit-token
             items:
             - key: token
               path: token
+        # This is the key for generated tokes out of this submit host
+        - name: submit-token-key
+          secret:
+            secretName: submit-token-key
+            items:
+            - key: token_key
+              path: token_key
+            defaultMode: 0600
         - name: condor-config
           configMap:
              name: condor-flock-config
              items:
              - key: condor.config
                path: condor_config.local
+        - name: gratia-config
+          configMap:
+             name: condor-flock-config
+             items:
+             - key: ProbeConfig
+               path: ProbeConfig
+        - name: spool
+          persistentVolumeClaim:
+            claimName: osgvo-submit-storage
 
